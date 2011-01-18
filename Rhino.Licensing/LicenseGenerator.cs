@@ -54,12 +54,12 @@ namespace Rhino.Licensing
 			return Generate(name, id, expirationDate, new Dictionary<string, string>(), licenseType);
 		}
 
-		public string Generate(string name, Guid id, DateTime expirationDate, IDictionary<string, string> attributes, LicenseType licenseType)
+		public string Generate(string name, Guid id, DateTime expirationDate, IDictionary<string, string> extendedData, LicenseType licenseType, bool extendedDataAsElements = false)
         {
             using (var rsa = new RSACryptoServiceProvider())
             {
                 rsa.FromXmlString(privateKey);
-                var doc = CreateDocument(id, name, expirationDate, attributes, licenseType);
+                var doc = CreateDocument(id, name, expirationDate, extendedData, licenseType, extendedDataAsElements);
 
                 var signature = GetXmlDigitalSignature(doc, rsa);
                 doc.FirstChild.AppendChild(doc.ImportNode(signature, true));
@@ -86,7 +86,7 @@ namespace Rhino.Licensing
             return signedXml.GetXml();
         }
 
-        private static XmlDocument CreateDocument(Guid id, string name, DateTime expirationDate,  IDictionary<string,string> attributes, LicenseType licenseType)
+        private static XmlDocument CreateDocument(Guid id, string name, DateTime expirationDate, IDictionary<string,string> extendedData, LicenseType licenseType, bool extendedDataAsElements)
         {
             var doc = new XmlDocument();
             var license = doc.CreateElement("license");
@@ -107,11 +107,20 @@ namespace Rhino.Licensing
             license.AppendChild(nameEl);
             nameEl.InnerText = name;
 
-        	foreach (var attribute in attributes)
-        	{
-        		var attrib = doc.CreateAttribute(attribute.Key);
-        		attrib.Value = attribute.Value;
-        		license.Attributes.Append(attrib);
+            foreach (var pair in extendedData)
+            {
+                if (extendedDataAsElements)
+                {
+                    var el = doc.CreateElement(pair.Key);
+                    el.InnerText = pair.Value;
+                    license.AppendChild(el);
+                }
+                else
+                {
+                    var attrib = doc.CreateAttribute(pair.Key);
+                    attrib.Value = pair.Value;
+                    license.Attributes.Append(attrib);
+                }
         	}
 
         	return doc;
